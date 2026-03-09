@@ -1,0 +1,72 @@
+{
+  "name": "@novaqore/ai",
+  "version": "0.1.0",
+  "description": "The world's first private, quantum-encrypted LLM clients. CRYSTALS-Kyber + AES-256-GCM end-to-end encryption. Zero dependencies.",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lib/"
+  ],
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "openai",
+    "chatgpt",
+    "gpt",
+    "gpt-4",
+    "claude",
+    "anthropic",
+    "gemini",
+    "mistral",
+    "llama",
+    "ollama",
+    "qwen",
+    "deepseek",
+    "moonshot",
+    "kimi",
+    "kimi-k2",
+    "phi",
+    "cohere",
+    "perplexity",
+    "groq",
+    "together-ai",
+    "huggingface",
+    "transformers",
+    "chatbot",
+    "machine-learning",
+    "deep-learning",
+    "nlp",
+    "natural-language-processing",
+    "generative-ai",
+    "text-generation",
+    "ai-api",
+    "quantum",
+    "encryption",
+    "kyber",
+    "post-quantum",
+    "cryptography",
+    "aes-256-gcm",
+    "crystals-kyber",
+    "private-ai",
+    "quantum-encryption",
+    "secure-ai",
+    "encrypted-llm",
+    "novaqore"
+  ],
+  "author": "novaqore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/novaqore/ai.git"
+  },
+  "homepage": "https://novaqore.ai",
+  "bugs": {
+    "url": "https://github.com/novaqore/ai/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
