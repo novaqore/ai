@@ -209,6 +209,21 @@ console.log(toolCall.function.name);       // "get_weather"
 console.log(toolCall.function.arguments);  // '{"location":"New York City"}'
 ```
 
+### Streaming
+
+```javascript
+const stream = await nq.chat(
+  [{ role: "user", content: "Tell me about the ocean" }],
+  { stream: true }
+);
+
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content || "";
+  process.stdout.write(content);
+}
+console.log();
+```
+
 ### Options
 
 | Option | Type | Default | Description |

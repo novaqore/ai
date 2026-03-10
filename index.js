@@ -113,11 +113,49 @@ class NovaQoreAI {
         }
       }
 
+      if (options.stream) {
+        return this.#readStream(res, sharedSecret);
+      }
+
       const { encrypted: encryptedResponse } = await res.json();
       return this.#decryptResponse(encryptedResponse, sharedSecret);
     } catch (err) {
       if (err.message) throw err;
       throw new Error("Failed to connect to NovaQore AI");
+    }
+  }
+
+  async *#readStream(res, sharedSecret) {
+    const decoder = new TextDecoder();
+    const reader = res.body.getReader();
+    let buffer = "";
+    let expectedSeq = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6);
+
+        if (data === "[DONE]") return;
+
+        const { encrypted } = JSON.parse(data);
+        const chunk = this.#decryptResponse(encrypted, sharedSecret);
+
+        if (chunk.seq !== expectedSeq) {
+          throw new Error(`Chunk out of order: expected ${expectedSeq}, got ${chunk.seq}`);
+        }
+        expectedSeq++;
+
+        yield chunk;
+      }
     }
   }
 
