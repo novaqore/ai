@@ -128,7 +128,7 @@ import NovaQoreAI from "@novaqore/ai";
 
 ### 1. Drop in your service file and go
 
-Download your `novaqore-service-*.json` from the [developer dashboard](https://novaqore.ai/developer) and drop it in your project root:
+Download your `novaqore-ai-service-*.json` from the [developer dashboard](https://novaqore.ai/developer) and drop it in your project root:
 
 ```javascript
 import NovaQoreAI from "@novaqore/ai";
@@ -147,7 +147,7 @@ That's it. NovaQore AI auto-detects the service file. Zero config.
 ### 2. Or pass the path explicitly
 
 ```javascript
-const nq = new NovaQoreAI("./novaqore-service-MkT3xYpLqN8vRwS1.json");
+const nq = new NovaQoreAI("./novaqore-ai-service-MkT3xYpLqN8vRwS1.json");
 ```
 
 ### 3. Or use environment variables
