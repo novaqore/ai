@@ -10,7 +10,7 @@
   <a href="https://www.npmjs.com/package/@novaqore/ai"><img src="https://img.shields.io/npm/v/@novaqore/ai?color=blue&label=npm" alt="npm version" /></a>
   <a href="https://github.com/novaqore/ai/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="license" /></a>
   <a href="https://img.shields.io/node/v/@novaqore/ai"><img src="https://img.shields.io/node/v/@novaqore/ai?color=brightgreen" alt="node version" /></a>
-  <a href="https://discord.gg/novaqore"><img src="https://img.shields.io/discord/1234567890?color=5865F2&label=discord&logo=discord&logoColor=white" alt="Discord" /></a>
+  <a href="https://discord.gg/JAzgcf6r"><img src="https://img.shields.io/discord/1234567890?color=5865F2&label=discord&logo=discord&logoColor=white" alt="Discord" /></a>
   <br><br>
   <a href="https://novaqore.ai/developer"><strong>🔑 Get Your Quantum Keys</strong></a> &nbsp;|&nbsp;
   <a href="https://novaqore.ai"><strong>🌐 Website</strong></a> &nbsp;|&nbsp;
@@ -272,7 +272,7 @@ Technical deep dives into the cryptography, architecture, and threat models behi
 We are building this in the open. Join us.
 
 <p>
-  <a href="https://discord.gg/novaqore"><strong>Discord</strong></a> &nbsp;|&nbsp;
+  <a href="https://discord.gg/JAzgcf6r"><strong>Discord</strong></a> &nbsp;|&nbsp;
   <a href="https://x.com/novaqore"><strong>X (Twitter)</strong></a> &nbsp;|&nbsp;
   <a href="https://tiktok.com/@novaqore"><strong>TikTok</strong></a> &nbsp;|&nbsp;
   <a href="https://youtube.com/@novaqore"><strong>YouTube</strong></a>
