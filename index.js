@@ -10,7 +10,9 @@ class NovaQoreAI {
   #uid;
   #quantumKey;
   #keyId;
-  #bearerToken;
+  #authToken;
+  #getAuthToken;
+  #abort;
 
   constructor(config) {
     if (config === undefined) {
@@ -46,10 +48,15 @@ class NovaQoreAI {
     this.#uid = config.uid;
     this.#quantumKey = config.quantumKey;
     this.#keyId = config.keyId;
-    this.#bearerToken = config.bearerToken || null;
+    this.#authToken = config.authToken || null;
+    this.#getAuthToken = config.getAuthToken || null;
     this.version = version;
     this.description = "NovaQore AI - Quantum-encrypted LLM client by NovaQore";
     this.methods = ["chat", "health"];
+  }
+
+  setAuthToken(token) {
+    this.#authToken = token;
   }
 
   async #encryptPayload(payload) {
@@ -88,6 +95,8 @@ class NovaQoreAI {
       throw new Error("Messages must be a non-empty array");
     }
 
+    this.#abort = new AbortController();
+
     try {
       const payload = {
         messages,
@@ -100,8 +109,11 @@ class NovaQoreAI {
       const { ciphertext, encrypted, sharedSecret } = await this.#encryptPayload(payload);
 
       const headers = { "Content-Type": "application/json" };
-      if (this.#bearerToken) {
-        headers["Authorization"] = `Bearer ${this.#bearerToken}`;
+      if (this.#getAuthToken) {
+        this.#authToken = await this.#getAuthToken();
+      }
+      if (this.#authToken) {
+        headers["Authorization"] = `Bearer ${this.#authToken}`;
       }
 
       const res = await fetch(`${BASE_URL}/v1/chat/completions`, {
@@ -113,6 +125,7 @@ class NovaQoreAI {
           ciphertext,
           encrypted,
         }),
+        signal: this.#abort.signal,
       });
 
       if (!res.ok) {
@@ -127,12 +140,16 @@ class NovaQoreAI {
       }
 
       if (options.stream) {
-        return this.#readStream(res, sharedSecret);
+        const stream = this.#readStream(res, sharedSecret);
+        const stop = () => this.#abort.abort();
+        return { stream, stop };
       }
 
       const { encrypted: encryptedResponse } = await res.json();
-      return this.#decryptResponse(encryptedResponse, sharedSecret);
+      const result = this.#decryptResponse(encryptedResponse, sharedSecret);
+      return { result, stop: () => {} };
     } catch (err) {
+      if (err.name === "AbortError") return;
       if (err.message) throw err;
       throw new Error("Failed to connect to NovaQore AI");
     }
@@ -144,31 +161,36 @@ class NovaQoreAI {
     let buffer = "";
     let expectedSeq = 0;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split("\n");
-      buffer = lines.pop();
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith("data: ")) continue;
-        const data = trimmed.slice(6);
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+          const data = trimmed.slice(6);
 
-        if (data === "[DONE]") return;
+          if (data === "[DONE]") return;
 
-        const { encrypted } = JSON.parse(data);
-        const chunk = this.#decryptResponse(encrypted, sharedSecret);
+          const { encrypted } = JSON.parse(data);
+          const chunk = this.#decryptResponse(encrypted, sharedSecret);
 
-        if (chunk.seq !== expectedSeq) {
-          throw new Error(`Chunk out of order: expected ${expectedSeq}, got ${chunk.seq}`);
+          if (chunk.seq !== expectedSeq) {
+            throw new Error(`Chunk out of order: expected ${expectedSeq}, got ${chunk.seq}`);
+          }
+          expectedSeq++;
+
+          yield chunk;
         }
-        expectedSeq++;
-
-        yield chunk;
       }
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      throw err;
     }
   }
 

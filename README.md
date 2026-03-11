@@ -137,11 +137,11 @@ import NovaQoreAI from "@novaqore/ai";
 
 const nq = new NovaQoreAI();
 
-const res = await nq.chat([
+const { result } = await nq.chat([
   { role: "user", content: "Hello" }
 ]);
 
-console.log(res.choices[0].message.content);
+console.log(result.choices[0].message.content);
 ```
 
 NovaQore AI auto-detects the service file. If no service file is found, it falls back to environment variables automatically.
@@ -177,7 +177,7 @@ If you call `new NovaQoreAI()` with no arguments and no service file is present,
 ### System prompt
 
 ```javascript
-const res = await nq.chat([
+const { result } = await nq.chat([
   { role: "system", content: "You are a helpful assistant that responds in haikus." },
   { role: "user", content: "Tell me about the ocean" }
 ]);
@@ -186,7 +186,7 @@ const res = await nq.chat([
 ### Tool use
 
 ```javascript
-const res = await nq.chat(
+const { result } = await nq.chat(
   [{ role: "user", content: "What's the weather in NYC?" }],
   {
     tools: [
@@ -208,7 +208,7 @@ const res = await nq.chat(
   }
 );
 
-const toolCall = res.choices[0].message.tool_calls[0];
+const toolCall = result.choices[0].message.tool_calls[0];
 console.log(toolCall.function.name);       // "get_weather"
 console.log(toolCall.function.arguments);  // '{"location":"New York City"}'
 ```
@@ -216,7 +216,7 @@ console.log(toolCall.function.arguments);  // '{"location":"New York City"}'
 ### Streaming
 
 ```javascript
-const stream = await nq.chat(
+const { stream, stop } = await nq.chat(
   [{ role: "user", content: "Tell me about the ocean" }],
   { stream: true }
 );
@@ -227,6 +227,8 @@ for await (const chunk of stream) {
 }
 console.log();
 ```
+
+Call `stop()` at any time to abort the stream (e.g. wire it to a stop button in your UI).
 
 ### Options
 
