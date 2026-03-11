@@ -10,6 +10,7 @@ class NovaQoreAI {
   #uid;
   #quantumKey;
   #keyId;
+  #bearerToken;
 
   constructor(config) {
     if (config === undefined) {
@@ -45,6 +46,7 @@ class NovaQoreAI {
     this.#uid = config.uid;
     this.#quantumKey = config.quantumKey;
     this.#keyId = config.keyId;
+    this.#bearerToken = config.bearerToken || null;
     this.version = version;
     this.description = "NovaQore AI - Quantum-encrypted LLM client by NovaQore";
     this.methods = ["chat", "health"];
@@ -97,9 +99,14 @@ class NovaQoreAI {
 
       const { ciphertext, encrypted, sharedSecret } = await this.#encryptPayload(payload);
 
+      const headers = { "Content-Type": "application/json" };
+      if (this.#bearerToken) {
+        headers["Authorization"] = `Bearer ${this.#bearerToken}`;
+      }
+
       const res = await fetch(`${BASE_URL}/v1/chat/completions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           uid: this.#uid,
           keyId: this.#keyId,
