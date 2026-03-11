@@ -13,8 +13,6 @@ class NovaQoreAI {
   #authToken;
   #getAuthToken;
   #abort;
-  #useLocalStorage;
-  #storageKey;
 
   constructor(config) {
     if (config === undefined) {
@@ -52,54 +50,13 @@ class NovaQoreAI {
     this.#keyId = config.keyId;
     this.#authToken = config.authToken || config.bearerToken || null;
     this.#getAuthToken = config.getAuthToken || null;
-    this.#useLocalStorage = config.localStorage || false;
-    this.#storageKey = config.storageKey || `novaqore-ai-history-${this.#uid}`;
-    if (this.#useLocalStorage && typeof localStorage === "undefined") {
-      throw new Error("localStorage is not available in this environment");
-    }
     this.version = version;
     this.description = "NovaQore AI - Quantum-encrypted LLM client by NovaQore";
-    this.methods = ["chat", "health"];
+    this.methods = ["chat", "decrypt", "health"];
   }
 
   setAuthToken(token) {
     this.#authToken = token;
-  }
-
-  #saveToStorage(entry) {
-    if (!this.#useLocalStorage) return;
-    const raw = localStorage.getItem(this.#storageKey);
-    const history = raw ? JSON.parse(raw) : [];
-    history.push(entry);
-    localStorage.setItem(this.#storageKey, JSON.stringify(history));
-  }
-
-  getHistory() {
-    if (!this.#useLocalStorage) return [];
-    const raw = localStorage.getItem(this.#storageKey);
-    if (!raw) return [];
-    const history = JSON.parse(raw);
-    return history.map(entry => {
-      const sharedSecret = Buffer.from(entry.sharedSecret, "base64");
-      const request = this.#decryptResponse(entry.request, sharedSecret);
-      let response = null;
-      if (entry.chunks) {
-        const parts = entry.chunks.map(c => {
-          const chunk = this.#decryptResponse(c, sharedSecret);
-          return chunk.choices[0]?.delta?.content || "";
-        });
-        response = { role: "assistant", content: parts.join("") };
-      } else if (entry.response) {
-        const decrypted = this.#decryptResponse(entry.response, sharedSecret);
-        response = decrypted.choices[0].message;
-      }
-      return { messages: request.messages, response };
-    });
-  }
-
-  clearHistory() {
-    if (!this.#useLocalStorage) return;
-    localStorage.removeItem(this.#storageKey);
   }
 
   async #encryptPayload(payload) {
@@ -131,6 +88,23 @@ class NovaQoreAI {
     decipher.setAuthTag(tag);
     const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     return JSON.parse(decrypted.toString("utf-8"));
+  }
+
+  decrypt(entry) {
+    const sharedSecret = Buffer.from(entry.sharedSecret, "base64");
+    const request = this.#decryptResponse(entry.request, sharedSecret);
+    let response = null;
+    if (entry.chunks && entry.chunks.length > 0) {
+      const parts = entry.chunks.map(c => {
+        const chunk = this.#decryptResponse(c, sharedSecret);
+        return chunk.choices[0]?.delta?.content || "";
+      });
+      response = { role: "assistant", content: parts.join("") };
+    } else if (entry.response) {
+      const decrypted = this.#decryptResponse(entry.response, sharedSecret);
+      response = decrypted.choices[0].message;
+    }
+    return { messages: request.messages, response };
   }
 
   async chat(messages, options = {}) {
@@ -182,17 +156,19 @@ class NovaQoreAI {
         }
       }
 
+      const encryptedEntry = { sharedSecret: sharedSecret.toString("base64"), request: encrypted };
+
       if (options.stream) {
-        const entry = { sharedSecret: sharedSecret.toString("base64"), request: encrypted, chunks: [] };
-        const stream = this.#readStream(res, sharedSecret, entry);
+        encryptedEntry.chunks = [];
+        const stream = this.#readStream(res, sharedSecret, encryptedEntry);
         const stop = () => this.#abort.abort();
-        return { stream, stop };
+        return { stream, stop, encrypted: encryptedEntry };
       }
 
       const { encrypted: encryptedResponse } = await res.json();
-      this.#saveToStorage({ sharedSecret: sharedSecret.toString("base64"), request: encrypted, response: encryptedResponse });
+      encryptedEntry.response = encryptedResponse;
       const result = this.#decryptResponse(encryptedResponse, sharedSecret);
-      return { result, stop: () => {} };
+      return { result, stop: () => {}, encrypted: encryptedEntry };
     } catch (err) {
       if (err.name === "AbortError") return;
       if (err.message) throw err;
@@ -220,10 +196,7 @@ class NovaQoreAI {
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
           const data = trimmed.slice(6);
 
-          if (data === "[DONE]") {
-            this.#saveToStorage(entry);
-            return;
-          }
+          if (data === "[DONE]") return;
 
           const { encrypted } = JSON.parse(data);
           entry.chunks.push(encrypted);
@@ -237,12 +210,8 @@ class NovaQoreAI {
           yield chunk;
         }
       }
-      this.#saveToStorage(entry);
     } catch (err) {
-      if (err.name === "AbortError") {
-        this.#saveToStorage(entry);
-        return;
-      }
+      if (err.name === "AbortError") return;
       throw err;
     }
   }

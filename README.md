@@ -239,47 +239,54 @@ Call `stop()` at any time to abort the stream (e.g. wire it to a stop button in 
 | `tools` | array | - | Tool definitions |
 | `tool_choice` | string | - | Tool selection mode |
 
-### Encrypted Chat History (localStorage)
+### Encrypted Chat History
 
-Enable `localStorage` to automatically save encrypted chat history in the browser. Messages are stored as encrypted blobs — zero extra crypto work, the SDK just keeps what's already encrypted.
+Every `chat()` call returns an `encrypted` object alongside the result — the raw encrypted blobs that were already generated during the request. No extra crypto work. Store them however you want (localStorage, IndexedDB, a database).
 
 ```javascript
-const nq = new NovaQoreAI({
-  uid: process.env.NOVAQORE_UID,
-  quantumKey: process.env.NOVAQORE_QUANTUM_KEY,
-  keyId: process.env.NOVAQORE_KEY_ID,
-  localStorage: true,
-});
+// Server-side (route.ts)
+const { result, encrypted } = await nq.chat([
+  { role: "user", content: "Hello" }
+]);
+
+// Return both to the client
+return Response.json({ result, encrypted });
 ```
 
-Every `chat()` call automatically saves the encrypted request and response. Retrieve and decrypt on demand:
+The client stores the encrypted blobs — unreadable without the server-side SDK:
 
 ```javascript
-const history = nq.getHistory();
+// Client-side
+localStorage.setItem("chat-123", JSON.stringify(encrypted));
+```
 
-for (const entry of history) {
-  console.log("User:", entry.messages[entry.messages.length - 1].content);
-  console.log("Assistant:", entry.response.content);
+When you need to load history, send the stored blobs back to the server and decrypt:
+
+```javascript
+// Server-side (e.g. /api/history route)
+const stored = req.body.encrypted; // from client localStorage
+const { messages, response } = nq.decrypt(stored);
+return Response.json({ messages, response });
+```
+
+Streaming works the same way — the `encrypted` object collects chunks as they stream:
+
+```javascript
+const { stream, stop, encrypted } = await nq.chat(
+  [{ role: "user", content: "Tell me about the ocean" }],
+  { stream: true }
+);
+
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content || "";
+  process.stdout.write(content);
 }
+
+// After stream completes, encrypted.chunks contains all encrypted blobs
+return Response.json({ encrypted });
 ```
 
-Clear all stored history:
-
-```javascript
-nq.clearHistory();
-```
-
-Use a custom storage key to separate conversations:
-
-```javascript
-const nq = new NovaQoreAI({
-  uid, quantumKey, keyId,
-  localStorage: true,
-  storageKey: "my-conversation-123",
-});
-```
-
-Data at rest stays encrypted in the browser — decryption only happens when you call `getHistory()`.
+The client only holds encrypted bytes it cannot read. All decryption stays server-side.
 
 ### Health check
 

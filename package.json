@@ -1,6 +1,6 @@
 {
   "name": "@novaqore/ai",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "The world's first private, quantum-encrypted LLM clients. CRYSTALS-Kyber + AES-256-GCM end-to-end encryption. Zero dependencies.",
   "main": "index.js",
   "files": [
