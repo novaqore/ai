@@ -13,10 +13,15 @@ class NovaQoreAI {
   constructor(config) {
     if (config === undefined) {
       const files = fs.readdirSync(process.cwd()).filter(f => f.startsWith("novaqore-ai-service-") && f.endsWith(".json"));
-      if (files.length === 0) {
-        throw new Error("No novaqore-ai-service-*.json file found in current directory");
+      if (files.length > 0) {
+        config = JSON.parse(fs.readFileSync(path.resolve(files[0]), "utf-8"));
+      } else {
+        config = {
+          uid: process.env.NOVAQORE_UID,
+          quantumKey: process.env.NOVAQORE_QUANTUM_KEY,
+          keyId: process.env.NOVAQORE_KEY_ID,
+        };
       }
-      config = JSON.parse(fs.readFileSync(path.resolve(files[0]), "utf-8"));
     } else if (typeof config === "string") {
       const filePath = path.resolve(config);
       if (!fs.existsSync(filePath)) {
@@ -25,7 +30,7 @@ class NovaQoreAI {
       config = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     }
     if (!config || typeof config !== "object") {
-      throw new Error("NovaQoreAI requires { uid, quantumKey, keyId } or a path to a novaqore-ai-service.json file");
+      throw new Error("NovaQoreAI requires { uid, quantumKey, keyId }");
     }
     if (!config.uid) {
       throw new Error("uid is required");

@@ -126,9 +126,11 @@ import NovaQoreAI from "@novaqore/ai";
 
 ## Quick Start
 
+Get your quantum keys from the [developer dashboard](https://novaqore.ai/developer).
+
 ### 1. Drop in your service file and go
 
-Download your `novaqore-ai-service-*.json` from the [developer dashboard](https://novaqore.ai/developer) and drop it in your project root:
+Download your `novaqore-ai-service-*.json` and drop it in your project root:
 
 ```javascript
 import NovaQoreAI from "@novaqore/ai";
@@ -142,7 +144,7 @@ const res = await nq.chat([
 console.log(res.choices[0].message.content);
 ```
 
-That's it. NovaQore AI auto-detects the service file. Zero config.
+NovaQore AI auto-detects the service file. If no service file is found, it falls back to environment variables automatically.
 
 ### 2. Or pass the path explicitly
 
@@ -165,6 +167,8 @@ const nq = new NovaQoreAI({
   keyId: process.env.NOVAQORE_KEY_ID,
 });
 ```
+
+If you call `new NovaQoreAI()` with no arguments and no service file is present, it will automatically read from these environment variables.
 
 ---
 
