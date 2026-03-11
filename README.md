@@ -300,5 +300,7 @@ MIT
 ---
 
 <p align="center">
+  <a href="https://chat.novaqore.ai"><strong>💬 Start Chat — Quantum-Private AI</strong></a>
+  <br><br>
   Powered by <a href="https://novaqore.ai">NovaQore Tech</a>
 </p>
