@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BASE_URL = "https://api.novaqore.ai";
+const { version } = require("./package.json");
 
 class NovaQoreAI {
   #uid;
@@ -44,7 +45,7 @@ class NovaQoreAI {
     this.#uid = config.uid;
     this.#quantumKey = config.quantumKey;
     this.#keyId = config.keyId;
-    this.version = "0.1.0";
+    this.version = version;
     this.description = "NovaQore AI - Quantum-encrypted LLM client by NovaQore";
     this.methods = ["chat", "health"];
   }
