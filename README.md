@@ -239,6 +239,48 @@ Call `stop()` at any time to abort the stream (e.g. wire it to a stop button in 
 | `tools` | array | - | Tool definitions |
 | `tool_choice` | string | - | Tool selection mode |
 
+### Encrypted Chat History (localStorage)
+
+Enable `localStorage` to automatically save encrypted chat history in the browser. Messages are stored as encrypted blobs — zero extra crypto work, the SDK just keeps what's already encrypted.
+
+```javascript
+const nq = new NovaQoreAI({
+  uid: process.env.NOVAQORE_UID,
+  quantumKey: process.env.NOVAQORE_QUANTUM_KEY,
+  keyId: process.env.NOVAQORE_KEY_ID,
+  localStorage: true,
+});
+```
+
+Every `chat()` call automatically saves the encrypted request and response. Retrieve and decrypt on demand:
+
+```javascript
+const history = nq.getHistory();
+
+for (const entry of history) {
+  console.log("User:", entry.messages[entry.messages.length - 1].content);
+  console.log("Assistant:", entry.response.content);
+}
+```
+
+Clear all stored history:
+
+```javascript
+nq.clearHistory();
+```
+
+Use a custom storage key to separate conversations:
+
+```javascript
+const nq = new NovaQoreAI({
+  uid, quantumKey, keyId,
+  localStorage: true,
+  storageKey: "my-conversation-123",
+});
+```
+
+Data at rest stays encrypted in the browser — decryption only happens when you call `getHistory()`.
+
 ### Health check
 
 ```javascript

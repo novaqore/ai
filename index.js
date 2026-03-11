@@ -13,6 +13,8 @@ class NovaQoreAI {
   #authToken;
   #getAuthToken;
   #abort;
+  #useLocalStorage;
+  #storageKey;
 
   constructor(config) {
     if (config === undefined) {
@@ -50,6 +52,11 @@ class NovaQoreAI {
     this.#keyId = config.keyId;
     this.#authToken = config.authToken || config.bearerToken || null;
     this.#getAuthToken = config.getAuthToken || null;
+    this.#useLocalStorage = config.localStorage || false;
+    this.#storageKey = config.storageKey || `novaqore-ai-history-${this.#uid}`;
+    if (this.#useLocalStorage && typeof localStorage === "undefined") {
+      throw new Error("localStorage is not available in this environment");
+    }
     this.version = version;
     this.description = "NovaQore AI - Quantum-encrypted LLM client by NovaQore";
     this.methods = ["chat", "health"];
@@ -57,6 +64,42 @@ class NovaQoreAI {
 
   setAuthToken(token) {
     this.#authToken = token;
+  }
+
+  #saveToStorage(entry) {
+    if (!this.#useLocalStorage) return;
+    const raw = localStorage.getItem(this.#storageKey);
+    const history = raw ? JSON.parse(raw) : [];
+    history.push(entry);
+    localStorage.setItem(this.#storageKey, JSON.stringify(history));
+  }
+
+  getHistory() {
+    if (!this.#useLocalStorage) return [];
+    const raw = localStorage.getItem(this.#storageKey);
+    if (!raw) return [];
+    const history = JSON.parse(raw);
+    return history.map(entry => {
+      const sharedSecret = Buffer.from(entry.sharedSecret, "base64");
+      const request = this.#decryptResponse(entry.request, sharedSecret);
+      let response = null;
+      if (entry.chunks) {
+        const parts = entry.chunks.map(c => {
+          const chunk = this.#decryptResponse(c, sharedSecret);
+          return chunk.choices[0]?.delta?.content || "";
+        });
+        response = { role: "assistant", content: parts.join("") };
+      } else if (entry.response) {
+        const decrypted = this.#decryptResponse(entry.response, sharedSecret);
+        response = decrypted.choices[0].message;
+      }
+      return { messages: request.messages, response };
+    });
+  }
+
+  clearHistory() {
+    if (!this.#useLocalStorage) return;
+    localStorage.removeItem(this.#storageKey);
   }
 
   async #encryptPayload(payload) {
@@ -140,12 +183,14 @@ class NovaQoreAI {
       }
 
       if (options.stream) {
-        const stream = this.#readStream(res, sharedSecret);
+        const entry = { sharedSecret: sharedSecret.toString("base64"), request: encrypted, chunks: [] };
+        const stream = this.#readStream(res, sharedSecret, entry);
         const stop = () => this.#abort.abort();
         return { stream, stop };
       }
 
       const { encrypted: encryptedResponse } = await res.json();
+      this.#saveToStorage({ sharedSecret: sharedSecret.toString("base64"), request: encrypted, response: encryptedResponse });
       const result = this.#decryptResponse(encryptedResponse, sharedSecret);
       return { result, stop: () => {} };
     } catch (err) {
@@ -155,7 +200,7 @@ class NovaQoreAI {
     }
   }
 
-  async *#readStream(res, sharedSecret) {
+  async *#readStream(res, sharedSecret, entry) {
     const decoder = new TextDecoder();
     const reader = res.body.getReader();
     let buffer = "";
@@ -175,9 +220,13 @@ class NovaQoreAI {
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
           const data = trimmed.slice(6);
 
-          if (data === "[DONE]") return;
+          if (data === "[DONE]") {
+            this.#saveToStorage(entry);
+            return;
+          }
 
           const { encrypted } = JSON.parse(data);
+          entry.chunks.push(encrypted);
           const chunk = this.#decryptResponse(encrypted, sharedSecret);
 
           if (chunk.seq !== expectedSeq) {
@@ -188,8 +237,12 @@ class NovaQoreAI {
           yield chunk;
         }
       }
+      this.#saveToStorage(entry);
     } catch (err) {
-      if (err.name === "AbortError") return;
+      if (err.name === "AbortError") {
+        this.#saveToStorage(entry);
+        return;
+      }
       throw err;
     }
   }
