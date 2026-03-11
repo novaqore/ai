@@ -48,7 +48,7 @@ class NovaQoreAI {
     this.#uid = config.uid;
     this.#quantumKey = config.quantumKey;
     this.#keyId = config.keyId;
-    this.#authToken = config.authToken || null;
+    this.#authToken = config.authToken || config.bearerToken || null;
     this.#getAuthToken = config.getAuthToken || null;
     this.version = version;
     this.description = "NovaQore AI - Quantum-encrypted LLM client by NovaQore";
