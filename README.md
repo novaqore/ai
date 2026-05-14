@@ -5,7 +5,7 @@
   <br><br>
   <strong>@novaqore/ai</strong>
   <br>
-  The world's first private LLM client.
+  Private LLM client.
   <br><br>
   <a href="https://www.npmjs.com/package/@novaqore/ai"><img src="https://img.shields.io/npm/v/@novaqore/ai?color=blue&label=npm" alt="npm version" /></a>
   <a href="https://github.com/novaqore/ai/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="license" /></a>
