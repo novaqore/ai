@@ -1,236 +1,85 @@
-const { Encrypt1024 } = require("./lib/kyber1024");
-const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
+"use strict";
 
-const BASE_URL = "https://api.novaqore.ai";
 const { version } = require("./package.json");
 
+const DEFAULT_BASE_URL = "https://api.novaqore.ai";
+
 class NovaQoreAI {
-  #uid;
-  #quantumKey;
-  #keyId;
-  #authToken;
-  #getAuthToken;
-  #abort;
-
-  constructor(config) {
-    if (config === undefined) {
-      const files = fs.readdirSync(process.cwd()).filter(f => f.startsWith("novaqore-ai-service-") && f.endsWith(".json"));
-      if (files.length > 0) {
-        config = JSON.parse(fs.readFileSync(path.resolve(files[0]), "utf-8"));
-      } else {
-        config = {
-          uid: process.env.NOVAQORE_UID,
-          quantumKey: process.env.NOVAQORE_QUANTUM_KEY,
-          keyId: process.env.NOVAQORE_KEY_ID,
-        };
-      }
-    } else if (typeof config === "string") {
-      const filePath = path.resolve(config);
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`Service file not found: ${filePath}`);
-      }
-      config = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    }
-    if (!config || typeof config !== "object") {
-      throw new Error("NovaQoreAI requires { uid, quantumKey, keyId }");
-    }
-    if (!config.uid) {
-      throw new Error("uid is required");
-    }
-    if (!config.quantumKey) {
-      throw new Error("quantumKey is required");
-    }
-    if (!config.keyId) {
-      throw new Error("keyId is required");
-    }
-    this.#uid = config.uid;
-    this.#quantumKey = config.quantumKey;
-    this.#keyId = config.keyId;
-    this.#authToken = config.authToken || config.bearerToken || null;
-    this.#getAuthToken = config.getAuthToken || null;
+  constructor(options = {}) {
     this.version = version;
-    this.description = "NovaQore AI - Quantum-encrypted LLM client by NovaQore";
-    this.methods = ["chat", "decrypt", "health"];
+    this.description = "NovaQore AI Private LLM";
+    this.baseUrl = (options.base_url || DEFAULT_BASE_URL).replace(/\/$/, "");
+    this.chat = this.chat.bind(this);
   }
 
-  setAuthToken(token) {
-    this.#authToken = token;
-  }
+  async chat(messages, tools = []) {
+    const controller = new AbortController();
 
-  async #encryptPayload(payload) {
-    const quantumKey = new Uint8Array(Buffer.from(this.#quantumKey, "base64"));
-
-    const [ciphertext, sharedSecret] = await Encrypt1024(quantumKey);
-
-    const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv("aes-256-gcm", Buffer.from(sharedSecret), iv);
-    const plaintext = Buffer.from(JSON.stringify(payload), "utf-8");
-    const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-    const tag = cipher.getAuthTag();
-
-    const packed = Buffer.concat([iv, encrypted, tag]);
-
-    return {
-      ciphertext: Buffer.from(ciphertext).toString("base64"),
-      encrypted: packed.toString("base64"),
-      sharedSecret: Buffer.from(sharedSecret),
-    };
-  }
-
-  #decryptResponse(encryptedB64, sharedSecret) {
-    const buf = Buffer.from(encryptedB64, "base64");
-    const iv = buf.subarray(0, 12);
-    const tag = buf.subarray(buf.length - 16);
-    const ciphertext = buf.subarray(12, buf.length - 16);
-    const decipher = crypto.createDecipheriv("aes-256-gcm", sharedSecret, iv);
-    decipher.setAuthTag(tag);
-    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    return JSON.parse(decrypted.toString("utf-8"));
-  }
-
-  decrypt(entry) {
-    const sharedSecret = Buffer.from(entry.sharedSecret, "base64");
-    const request = this.#decryptResponse(entry.request, sharedSecret);
-    let response = null;
-    if (entry.chunks && entry.chunks.length > 0) {
-      const parts = entry.chunks.map(c => {
-        const chunk = this.#decryptResponse(c, sharedSecret);
-        return chunk.choices[0]?.delta?.content || "";
-      });
-      response = { role: "assistant", content: parts.join("") };
-    } else if (entry.response) {
-      const decrypted = this.#decryptResponse(entry.response, sharedSecret);
-      response = decrypted.choices[0].message;
-    }
-    return { messages: request.messages, response };
-  }
-
-  async chat(messages, options = {}) {
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      throw new Error("Messages must be a non-empty array");
-    }
-
-    this.#abort = new AbortController();
-
-    try {
-      const payload = {
+    const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         messages,
-        temperature: options.temperature,
-        stream: options.stream || false,
-        ...(options.tools && { tools: options.tools }),
-        ...(options.tool_choice && { tool_choice: options.tool_choice }),
-      };
+        stream: true,
+        tools,
+      }),
+    });
 
-      const { ciphertext, encrypted, sharedSecret } = await this.#encryptPayload(payload);
-
-      const headers = { "Content-Type": "application/json" };
-      if (this.#getAuthToken) {
-        this.#authToken = await this.#getAuthToken();
-      }
-      if (this.#authToken) {
-        headers["Authorization"] = `Bearer ${this.#authToken}`;
-      }
-
-      const res = await fetch(`${BASE_URL}/v1/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          uid: this.#uid,
-          keyId: this.#keyId,
-          ciphertext,
-          encrypted,
-        }),
-        signal: this.#abort.signal,
-      });
-
-      if (!res.ok) {
-        const body = await res.text();
-        try {
-          const parsed = JSON.parse(body);
-          throw new Error(parsed.error || `Request failed with status ${res.status}`);
-        } catch (e) {
-          if (e.message && !e.message.includes("JSON")) throw e;
-          throw new Error(`Request failed with status ${res.status}`);
-        }
-      }
-
-      const encryptedEntry = { sharedSecret: sharedSecret.toString("base64"), request: encrypted };
-
-      if (options.stream) {
-        encryptedEntry.chunks = [];
-        const stream = this.#readStream(res, sharedSecret, encryptedEntry);
-        const stop = () => this.#abort.abort();
-        return { stream, stop, encrypted: encryptedEntry };
-      }
-
-      const { encrypted: encryptedResponse } = await res.json();
-      encryptedEntry.response = encryptedResponse;
-      const result = this.#decryptResponse(encryptedResponse, sharedSecret);
-      return { result, stop: () => {}, encrypted: encryptedEntry };
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      if (err.message) throw err;
-      throw new Error("Failed to connect to NovaQore AI");
-    }
-  }
-
-  async *#readStream(res, sharedSecret, entry) {
-    const decoder = new TextDecoder();
     const reader = res.body.getReader();
-    let buffer = "";
-    let expectedSeq = 0;
+    const decoder = new TextDecoder();
+    const stdin = process.stdin;
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+    const onKey = (key) => {
+      if (key.toString() !== "") return;
+      controller.abort();
+      try { reader.cancel().catch(() => {}); } catch {}
+      try { stdin.removeListener("data", onKey); } catch {}
+      try { stdin.setRawMode(false); } catch {}
+      try { stdin.pause(); } catch {}
+    };
 
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.on("data", onKey);
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data: ")) continue;
-          const data = trimmed.slice(6);
+    const stream = (async function* () {
+      let buffer = "";
 
-          if (data === "[DONE]") return;
-
-          const { encrypted } = JSON.parse(data);
-          entry.chunks.push(encrypted);
-          const chunk = this.#decryptResponse(encrypted, sharedSecret);
-
-          if (chunk.seq !== expectedSeq) {
-            throw new Error(`Chunk out of order: expected ${expectedSeq}, got ${chunk.seq}`);
+      try {
+        while (true) {
+          let value, done;
+          try {
+            ({ value, done } = await reader.read());
+          } catch (err) {
+            if (err?.name === "AbortError") break;
+            throw err;
           }
-          expectedSeq++;
+          if (done) break;
 
-          yield chunk;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+
+            const json = trimmed.slice(6);
+            if (json === "[DONE]") continue;
+
+            yield JSON.parse(json);
+          }
         }
+      } finally {
+        try { stdin.removeListener("data", onKey); } catch {}
+        try { stdin.setRawMode(false); } catch {}
+        try { stdin.pause(); } catch {}
       }
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      throw err;
-    }
-  }
+    })();
 
-  async health() {
-    try {
-      const res = await fetch(`${BASE_URL}/health`, {
-        headers: {
-          "x-uid": this.#uid,
-        },
-      });
-      if (!res.ok) {
-        throw new Error(`Health check failed with status ${res.status}`);
-      }
-      return res.json();
-    } catch (err) {
-      if (err.message) throw err;
-      throw new Error("Failed to connect to NovaQore AI");
-    }
+    return { stream };
   }
 }
 
