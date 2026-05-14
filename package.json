@@ -1,7 +1,7 @@
 {
   "name": "@novaqore/ai",
   "version": "2.0.0",
-  "description": "The world's first private LLM client. Zero dependencies.",
+  "description": "NovaQore Private LLM client.",
   "main": "index.js",
   "files": [
     "index.js",
