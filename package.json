@@ -3,8 +3,10 @@
   "version": "2.0.1",
   "description": "NovaQore Private LLM client.",
   "main": "index.js",
+  "types": "index.d.ts",
   "files": [
     "index.js",
+    "index.d.ts",
     "package.json"
   ],
   "scripts": {
