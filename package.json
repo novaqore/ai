@@ -1,11 +1,10 @@
 {
   "name": "@novaqore/ai",
   "version": "2.0.0",
-  "description": "The world's first private, quantum-encrypted LLM clients. CRYSTALS-Kyber + AES-256-GCM end-to-end encryption. Zero dependencies.",
+  "description": "The world's first private LLM client. Zero dependencies.",
   "main": "index.js",
   "files": [
     "index.js",
-    "lib/",
     "package.json"
   ],
   "scripts": {
@@ -44,17 +43,7 @@
     "generative-ai",
     "text-generation",
     "ai-api",
-    "quantum",
-    "encryption",
-    "kyber",
-    "post-quantum",
-    "cryptography",
-    "aes-256-gcm",
-    "crystals-kyber",
     "private-ai",
-    "quantum-encryption",
-    "secure-ai",
-    "encrypted-llm",
     "novaqore"
   ],
   "author": "novaqore",
