@@ -9,24 +9,34 @@ class NovaQoreAI {
     this.version = version;
     this.description = "NovaQore AI Private LLM";
     this.baseUrl = (options.base_url || DEFAULT_BASE_URL).replace(/\/$/, "");
+    this.idtoken = options.idtoken || null;
     this.chat = this.chat.bind(this);
   }
 
-  async chat(messages, tools = []) {
+  async chat({ messages, tools = [], tool_choice = "auto", stream = true } = {}) {
+    const headers = { "Content-Type": "application/json" };
+    if (this.idtoken) headers["Authorization"] = `Bearer ${this.idtoken}`;
+
     const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         messages,
-        stream: true,
+        stream,
         tools,
+        tool_choice,
       }),
     });
+
+    if (!stream) {
+      const result = await res.json();
+      return { result };
+    }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
 
-    const stream = (async function* () {
+    const iterator = (async function* () {
       let buffer = "";
 
       while (true) {
@@ -50,7 +60,7 @@ class NovaQoreAI {
       }
     })();
 
-    return { stream };
+    return { stream: iterator };
   }
 }
 
