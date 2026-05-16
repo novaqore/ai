@@ -63,6 +63,27 @@ const { result } = await chat({
 console.log(result.choices[0].message.content);
 ```
 
+### Cancel a request
+
+`chat()` returns an `abort()` function. Call it to tear down the request and its underlying connection at any time.
+
+```javascript
+const { stream, abort } = await chat({
+  messages: [{ role: "user", content: "Count to 100." }],
+});
+
+// e.g. abort after 1s, or wire to a stop button
+setTimeout(abort, 1000);
+
+try {
+  for await (const chunk of stream) {
+    process.stdout.write(chunk.choices[0]?.delta?.content || "");
+  }
+} catch (err) {
+  if (err.name !== "AbortError") throw err;
+}
+```
+
 ### Tool use
 
 ```javascript

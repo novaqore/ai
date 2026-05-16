@@ -50,10 +50,14 @@ declare namespace NovaQoreAI {
   interface ChatResponse {
     /** Async iterator of chat completion chunks. */
     stream: AsyncGenerator<ChatCompletionChunk, void, unknown>;
+    /** Tear down the request and its underlying connection. The stream's next read rejects with AbortError. */
+    abort: () => void;
   }
 
   interface ChatResult {
     result: ChatCompletion;
+    /** No-op once the response has resolved; included for API symmetry with streaming. */
+    abort: () => void;
   }
 
   interface ChatCompletion {

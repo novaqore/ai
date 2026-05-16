@@ -14,12 +14,16 @@ class NovaQoreAI {
   }
 
   async chat({ messages, tools = [], tool_choice = "auto", stream = true } = {}) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+
     const headers = { "Content-Type": "application/json" };
     if (this.idtoken) headers["Authorization"] = `Bearer ${this.idtoken}`;
 
     const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers,
+      signal: controller.signal,
       body: JSON.stringify({
         messages,
         stream,
@@ -30,7 +34,7 @@ class NovaQoreAI {
 
     if (!stream) {
       const result = await res.json();
-      return { result };
+      return { result, abort };
     }
 
     const reader = res.body.getReader();
@@ -60,7 +64,7 @@ class NovaQoreAI {
       }
     })();
 
-    return { stream: iterator };
+    return { stream: iterator, abort };
   }
 }
 
