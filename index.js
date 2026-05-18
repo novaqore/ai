@@ -13,7 +13,7 @@ class NovaQoreAI {
     this.chat = this.chat.bind(this);
   }
 
-  async chat({ messages, tools = [], tool_choice = "auto", stream = true } = {}) {
+  async chat({ messages, tools = [], tool_choice = "auto", stream = true, model = null } = {}) {
     const controller = new AbortController();
     const abort = () => controller.abort();
 
@@ -29,6 +29,7 @@ class NovaQoreAI {
         stream,
         tools,
         tool_choice,
+        model
       }),
     });
 
