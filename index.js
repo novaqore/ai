@@ -11,11 +11,18 @@ class NovaQoreAI {
     this.baseUrl = (options.base_url || DEFAULT_BASE_URL).replace(/\/$/, "");
     this.idtoken = options.idtoken || null;
     this.chat = this.chat.bind(this);
+    this.controller = null;
+  }
+
+  abort() {
+    if (this.controller) {
+      this.controller.abort();
+      this.controller = null;
+    }
   }
 
   async chat({ messages, tools = [], tool_choice = "auto", stream = true, model = null } = {}) {
-    const controller = new AbortController();
-    const abort = () => controller.abort();
+    this.controller = new AbortController();
 
     const headers = { "Content-Type": "application/json" };
     if (this.idtoken) headers["Authorization"] = `Bearer ${this.idtoken}`;
@@ -23,7 +30,7 @@ class NovaQoreAI {
     const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers,
-      signal: controller.signal,
+      signal: this.controller.signal,
       body: JSON.stringify({
         messages,
         stream,
@@ -35,7 +42,7 @@ class NovaQoreAI {
 
     if (!stream) {
       const result = await res.json();
-      return { result, abort };
+      return { result };
     }
 
     const reader = res.body.getReader();
@@ -65,7 +72,7 @@ class NovaQoreAI {
       }
     })();
 
-    return { stream: iterator, abort };
+    return { stream: iterator };
   }
 }
 
