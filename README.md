@@ -65,15 +65,17 @@ console.log(result.choices[0].message.content);
 
 ### Cancel a request
 
-`chat()` returns an `abort()` function. Call it to tear down the request and its underlying connection at any time.
+Call `abort()` on the client instance to cancel **all** in-flight requests and tear down their connections.
 
 ```javascript
-const { stream, abort } = await chat({
+const nq = new NovaQoreAI();
+
+const { stream } = await nq.chat({
   messages: [{ role: "user", content: "Count to 100." }],
 });
 
 // e.g. abort after 1s, or wire to a stop button
-setTimeout(abort, 1000);
+setTimeout(() => nq.abort(), 1000);
 
 try {
   for await (const chunk of stream) {
