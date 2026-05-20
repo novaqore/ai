@@ -65,7 +65,9 @@ console.log(result.choices[0].message.content);
 
 ### Cancel a request
 
-Call `abort()` on the client instance to cancel **all** in-flight requests and tear down their connections.
+Call `abort()` on the client instance to cancel **all** in-flight requests. Each `chat()` call registers an `AbortController`. Calling `abort()` fires `controller.abort()` on every registered controller and clears the list.
+
+> **Note:** The SSE reader may complete silently or throw `AbortError` depending on timing. Wrap your stream loop in `try/catch` and ignore `AbortError` if it surfaces.
 
 ```javascript
 const nq = new NovaQoreAI();
@@ -144,6 +146,7 @@ Requests hit `${base_url}/v1/chat/completions`. Streaming, tools, `tool_choice`,
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `base_url` | string | `https://api.novaqore.ai` | Override the API base URL |
+| `idtoken` | string | `null` | Bearer token for Authorization header |
 
 **`chat(params)`**
 
@@ -153,6 +156,7 @@ Requests hit `${base_url}/v1/chat/completions`. Streaming, tools, `tool_choice`,
 | `tools` | array | `[]` | Tool definitions |
 | `tool_choice` | string \| object | `"auto"` | `"auto"`, `"none"`, `"required"`, or `{ type: "function", function: { name } }` |
 | `stream` | boolean | `true` | Stream the response. When `false`, resolves to `{ result }` instead of `{ stream }` |
+| `model` | string | `null` | Model identifier. Passed through to the server; omit to use the server default |
 
 ## Roadmap
 
