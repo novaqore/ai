@@ -11,18 +11,19 @@ class NovaQoreAI {
     this.baseUrl = (options.base_url || DEFAULT_BASE_URL).replace(/\/$/, "");
     this.idtoken = options.idtoken || null;
     this.chat = this.chat.bind(this);
-    this.controller = null;
+    this.controllers = [];
   }
 
   abort() {
-    if (this.controller) {
-      this.controller.abort();
-      this.controller = null;
+    for (const controller of this.controllers) {
+      controller.abort();
     }
+    this.controllers = [];
   }
 
   async chat({ messages, tools = [], tool_choice = "auto", stream = true, model = null } = {}) {
-    this.controller = new AbortController();
+    const controller = new AbortController();
+    this.controllers.push(controller);
 
     const headers = { "Content-Type": "application/json" };
     if (this.idtoken) headers["Authorization"] = `Bearer ${this.idtoken}`;
@@ -30,7 +31,7 @@ class NovaQoreAI {
     const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers,
-      signal: this.controller.signal,
+      signal: controller.signal,
       body: JSON.stringify({
         messages,
         stream,
